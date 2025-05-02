@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "./button";
 import { Sheet, SheetContent, SheetTrigger } from "./sheet";
 import { Menu, ShoppingCart, User } from "lucide-react";
@@ -8,6 +8,11 @@ import { Badge } from "./badge";
 
 export function Navigation() {
   const [cartCount, setCartCount] = useState(0);
+  const location = useLocation();
+  
+  const isActive = (path: string) => {
+    return location.pathname === path;
+  };
 
   return (
     <nav className="border-b bg-white sticky top-0 z-50">
@@ -17,13 +22,13 @@ export function Navigation() {
             ПрокатПро
           </Link>
           <div className="hidden md:flex gap-6">
-            <Link to="/catalog" className="hover:text-orange-600 transition-colors">
+            <Link to="/catalog" className={`transition-colors ${isActive('/catalog') ? 'text-orange-600 font-medium' : 'hover:text-orange-600'}`}>
               Каталог
             </Link>
-            <Link to="/about" className="hover:text-orange-600 transition-colors">
+            <Link to="/about" className={`transition-colors ${isActive('/about') ? 'text-orange-600 font-medium' : 'hover:text-orange-600'}`}>
               О нас
             </Link>
-            <Link to="/contacts" className="hover:text-orange-600 transition-colors">
+            <Link to="/contacts" className={`transition-colors ${isActive('/contacts') ? 'text-orange-600 font-medium' : 'hover:text-orange-600'}`}>
               Контакты
             </Link>
           </div>
@@ -49,11 +54,11 @@ export function Navigation() {
             </SheetTrigger>
             <SheetContent>
               <div className="flex flex-col gap-4 pt-10">
-                <Link to="/" className="text-lg font-medium">Главная</Link>
-                <Link to="/catalog" className="text-lg font-medium">Каталог</Link>
-                <Link to="/about" className="text-lg font-medium">О нас</Link>
-                <Link to="/contacts" className="text-lg font-medium">Контакты</Link>
-                <Link to="/login" className="text-lg font-medium">Вход/Регистрация</Link>
+                <Link to="/" className={`text-lg ${isActive('/') ? 'text-orange-600 font-medium' : ''}`}>Главная</Link>
+                <Link to="/catalog" className={`text-lg ${isActive('/catalog') ? 'text-orange-600 font-medium' : ''}`}>Каталог</Link>
+                <Link to="/about" className={`text-lg ${isActive('/about') ? 'text-orange-600 font-medium' : ''}`}>О нас</Link>
+                <Link to="/contacts" className={`text-lg ${isActive('/contacts') ? 'text-orange-600 font-medium' : ''}`}>Контакты</Link>
+                <Link to="/login" className="text-lg">Вход/Регистрация</Link>
               </div>
             </SheetContent>
           </Sheet>
