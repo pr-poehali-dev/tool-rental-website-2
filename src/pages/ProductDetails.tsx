@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { PRODUCTS, Product } from "@/data/products";
+import { useCart } from "@/components/ui/CartContext";
 import { ChevronLeft, Check, AlertTriangle, Truck, ShieldCheck } from "lucide-react";
 
 const ProductDetails = () => {
@@ -13,6 +14,8 @@ const ProductDetails = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [mainImage, setMainImage] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
+  const [days, setDays] = useState(1);
+  const { addItem } = useCart();
   
   useEffect(() => {
     if (id) {
@@ -39,8 +42,7 @@ const ProductDetails = () => {
   }
   
   const handleAddToCart = () => {
-    console.log("Добавление в корзину:", { product, quantity });
-    // Здесь будет логика добавления в корзину
+    addItem(product, quantity, days);
   };
   
   const handleImageChange = (image: string) => {
@@ -48,6 +50,15 @@ const ProductDetails = () => {
   };
   
   const galleryImages = [product.image, ...(product.gallery || [])];
+
+  // Расчет итоговой цены с учетом количества дней и скидки
+  const calculatePrice = () => {
+    let price = product.price * days * quantity;
+    if (product.discount) {
+      price = price * (1 - product.discount / 100);
+    }
+    return price;
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -124,27 +135,61 @@ const ProductDetails = () => {
             </div>
             
             {product.isAvailable && (
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex border rounded-md">
-                  <button
-                    className="px-3 py-2 border-r"
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    disabled={quantity <= 1}
-                  >
-                    -
-                  </button>
-                  <span className="px-4 py-2">{quantity}</span>
-                  <button
-                    className="px-3 py-2 border-l"
-                    onClick={() => setQuantity(quantity + 1)}
-                  >
-                    +
-                  </button>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Количество</label>
+                  <div className="flex border rounded-md w-32">
+                    <button
+                      className="px-3 py-2 border-r"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      disabled={quantity <= 1}
+                    >
+                      -
+                    </button>
+                    <span className="px-4 py-2 flex-1 text-center">{quantity}</span>
+                    <button
+                      className="px-3 py-2 border-l"
+                      onClick={() => setQuantity(quantity + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Срок аренды (дней)</label>
+                  <div className="flex border rounded-md w-32">
+                    <button
+                      className="px-3 py-2 border-r"
+                      onClick={() => setDays(Math.max(1, days - 1))}
+                      disabled={days <= 1}
+                    >
+                      -
+                    </button>
+                    <span className="px-4 py-2 flex-1 text-center">{days}</span>
+                    <button
+                      className="px-3 py-2 border-l"
+                      onClick={() => setDays(days + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <div className="flex justify-between items-center">
+                    <span>Итого за аренду:</span>
+                    <span className="font-bold">{calculatePrice()} ₽</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm text-gray-600">
+                    <span>Залог (возвращается):</span>
+                    <span>{product.deposit * quantity} ₽</span>
+                  </div>
                 </div>
                 
                 <Button 
                   onClick={handleAddToCart}
-                  className="bg-orange-600 hover:bg-orange-700"
+                  className="w-full bg-orange-600 hover:bg-orange-700"
                   disabled={!product.isAvailable}
                 >
                   Добавить в корзину

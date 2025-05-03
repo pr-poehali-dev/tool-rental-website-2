@@ -5,10 +5,11 @@ import { Button } from "./button";
 import { Sheet, SheetContent, SheetTrigger } from "./sheet";
 import { Menu, ShoppingCart, User } from "lucide-react";
 import { Badge } from "./badge";
+import { useCart } from "./CartContext";
 
 export function Navigation() {
-  const [cartCount, setCartCount] = useState(0);
   const location = useLocation();
+  const { itemsCount } = useCart();
   
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -37,9 +38,9 @@ export function Navigation() {
         <div className="flex items-center gap-4">
           <Link to="/cart" className="relative">
             <ShoppingCart className="h-6 w-6" />
-            {cartCount > 0 && (
+            {itemsCount > 0 && (
               <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0">
-                {cartCount}
+                {itemsCount}
               </Badge>
             )}
           </Link>
