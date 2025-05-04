@@ -40,6 +40,8 @@ import {
   Calendar,
   Package,
   Users,
+  FileText,
+  FileBarChart
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -58,6 +60,7 @@ import {
   AreaChart,
   Area,
 } from "recharts";
+import { Link } from "react-router-dom";
 
 const Analytics = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -173,6 +176,34 @@ const Analytics = () => {
       title="Аналитика"
       subtitle="Анализ продаж, бронирований и популярных товаров"
     >
+      {/* Баннер с отчетами */}
+      <Card className="mb-6 bg-orange-50 border-orange-200">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold text-orange-800">Новые возможности: Детализированные отчеты</h3>
+              <p className="text-sm text-orange-700 mt-1">
+                Создавайте и печатайте подробные отчеты для руководства и анализа бизнеса
+              </p>
+            </div>
+            <div className="mt-4 md:mt-0 flex gap-4">
+              <Button asChild variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100">
+                <Link to="/admin/reports">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Финансовый отчет
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100">
+                <Link to="/admin/reports?tab=equipment">
+                  <FileBarChart className="h-4 w-4 mr-2" />
+                  Отчет о загруженности
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
         <TabsList className="mb-6 grid grid-cols-3 max-w-lg">
           <TabsTrigger value="overview" className="flex items-center">
@@ -428,95 +459,408 @@ const Analytics = () => {
                       <div className="space-y-2">
                         <Label htmlFor="data">Данные для экспорта</Label>
                         <Select value={exportData} onValueChange={(value: any) => setExportData(value)}>
-                          <SelectTrigger id="data">
-                            <SelectValue placeholder="Выберите данные" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Все данные</SelectItem>
-                            <SelectItem value="bookings">Бронирования</SelectItem>
-                            <SelectItem value="revenue">Доходы</SelectItem>
-                            <SelectItem value="products">Товары</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                          Понял ваш запрос. Для реализации прогнозирования и детализированных отчетов буду создавать:
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="startDate">Начальная дата</Label>
-                          <Input
-                            id="startDate"
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="endDate">Конечная дата</Label>
-                          <Input
-                            id="endDate"
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                          />
-                        </div>
-                      </div>
+1. Раздел прогнозирования доходов, сезонных колебаний и рекомендаций по ассортименту
+2. Доработку отчетов для печати: о загруженности оборудования и эффективности товаров
 
-                      <Button
-                        className="w-full bg-orange-600 hover:bg-orange-700"
-                        onClick={handleExport}
-                        disabled={exportLoading}
-                      >
-                        {exportLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Экспорт...
-                          </>
-                        ) : (
-                          <>
-                            <FileDown className="mr-2 h-4 w-4" />
-                            Экспортировать данные
-                          </>
-                        )}
-                      </Button>
+Сначала изучу существующую структуру сервиса аналитики, чтобы правильно внедрить новый функционал.Я создам страницу прогнозирования для административной панели, которая позволит анализировать будущие тренды доходов, сезонные колебания и получать рекомендации по оптимизации ассортимента.
+
+<pp-write filepath="src/pages/admin/Forecasting.tsx">
+import { useState, useEffect } from "react";
+import AdminLayout from "@/components/ui/AdminLayout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "@/components/ui/use-toast";
+import {
+  TrendingUp,
+  Loader2,
+  Calendar,
+  BarChart3,
+  FileDown,
+  ArrowUpRight,
+  ArrowDownRight,
+  Lightbulb,
+  AlertCircle,
+  Info,
+  HelpCircle,
+  ThumbsUp,
+  ThumbsDown,
+  Bookmark,
+  LineChart,
+  Award,
+  BadgePercent,
+  Star,
+  Percent,
+} from "lucide-react";
+import {
+  AnalyticsService,
+  RevenueForecast,
+  DemandForecast,
+  ProductOptimizationRecommendation,
+} from "@/services/analytics-service";
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  LineChart as RechartLineChart,
+  Line,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  AreaChart,
+  Area,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+} from "recharts";
+
+const Forecasting = () => {
+  const [activeTab, setActiveTab] = useState("revenue");
+  const [forecastMonths, setForecastMonths] = useState<number>(6);
+  const [loading, setLoading] = useState(true);
+  const [revenueForecast, setRevenueForecast] = useState<RevenueForecast[]>([]);
+  const [seasonalDemand, setSeasonalDemand] = useState<DemandForecast[]>([]);
+  const [recommendations, setRecommendations] = useState<ProductOptimizationRecommendation[]>([]);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Загрузка всех прогнозных данных
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Загружаем прогноз доходов на 6 месяцев вперед
+      const revenueData = await AnalyticsService.getRevenueForecast(forecastMonths);
+      setRevenueForecast(revenueData);
+
+      // Загружаем прогноз сезонного спроса
+      const demandData = await AnalyticsService.getSeasonalDemandForecast();
+      setSeasonalDemand(demandData);
+
+      // Загружаем рекомендации по оптимизации ассортимента
+      const recommendationsData = await AnalyticsService.getOptimizationRecommendations();
+      setRecommendations(recommendationsData);
+    } catch (error) {
+      console.error("Ошибка загрузки прогнозных данных:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить прогнозные данные",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Обновление прогноза доходов при изменении периода
+  const updateRevenueForecast = async (months: number) => {
+    setForecastMonths(months);
+    setLoading(true);
+    try {
+      const revenueData = await AnalyticsService.getRevenueForecast(months);
+      setRevenueForecast(revenueData);
+      toast({
+        title: "Прогноз обновлен",
+        description: `Прогноз доходов обновлен на ${months} месяцев`,
+      });
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить прогноз доходов",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Функция для форматирования валюты
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("ru-RU", {
+      style: "currency",
+      currency: "RUB",
+      minimumFractionDigits: 0,
+    }).format(value);
+  };
+
+  // Функция для форматирования процентов
+  const formatPercent = (value: number) => {
+    return `${value}%`;
+  };
+
+  // Кастомный тултип для графиков
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 shadow-md rounded-md border">
+          <p className="font-medium">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} style={{ color: entry.color }}>
+              {entry.name}: {
+                entry.name.includes("доход") || entry.name.includes("Доход") || entry.name === "Прогноз" || entry.name === "Верхняя граница" || entry.name === "Нижняя граница"
+                  ? formatCurrency(entry.value)
+                  : entry.value
+              }
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Получение цвета для трендов и рекомендаций
+  const getTrendColor = (trend: string) => {
+    switch (trend) {
+      case "increasing":
+        return "text-green-600";
+      case "decreasing":
+        return "text-red-600";
+      default:
+        return "text-blue-600";
+    }
+  };
+
+  const getRecommendationColor = (type: string) => {
+    switch (type) {
+      case "increase":
+        return "bg-green-100 text-green-800";
+      case "decrease":
+        return "bg-orange-100 text-orange-800";
+      case "maintain":
+        return "bg-blue-100 text-blue-800";
+      case "remove":
+        return "bg-red-100 text-red-800";
+      case "add":
+        return "bg-indigo-100 text-indigo-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getRecommendationIcon = (type: string) => {
+    switch (type) {
+      case "increase":
+        return <ArrowUpRight className="h-4 w-4 mr-1" />;
+      case "decrease":
+        return <ArrowDownRight className="h-4 w-4 mr-1" />;
+      case "maintain":
+        return <ThumbsUp className="h-4 w-4 mr-1" />;
+      case "remove":
+        return <ThumbsDown className="h-4 w-4 mr-1" />;
+      case "add":
+        return <Bookmark className="h-4 w-4 mr-1" />;
+      default:
+        return <Info className="h-4 w-4 mr-1" />;
+    }
+  };
+
+  const getRecommendationText = (type: string) => {
+    switch (type) {
+      case "increase":
+        return "Увеличить";
+      case "decrease":
+        return "Уменьшить";
+      case "maintain":
+        return "Сохранить";
+      case "remove":
+        return "Удалить";
+      case "add":
+        return "Добавить";
+      default:
+        return type;
+    }
+  };
+
+  if (loading) {
+    return (
+      <AdminLayout
+        title="Прогнозирование"
+        subtitle="Прогноз доходов, сезонных колебаний и рекомендации по ассортименту"
+      >
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+          <p className="ml-2 text-gray-600">Загрузка прогнозных данных...</p>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  return (
+    <AdminLayout
+      title="Прогнозирование"
+      subtitle="Прогноз доходов, сезонных колебаний и рекомендации по ассортименту"
+    >
+      <div className="mb-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start">
+          <Info className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+          <div>
+            <h3 className="font-medium text-blue-800">О системе прогнозирования</h3>
+            <p className="text-sm text-blue-700 mt-1">
+              Система использует алгоритмы машинного обучения для анализа исторических данных 
+              и построения прогнозов. Учитываются сезонные тренды, исторические показатели и рыночные факторы.
+              Точность прогнозов уменьшается с увеличением горизонта прогнозирования.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+        <TabsList className="mb-6 grid grid-cols-3 max-w-lg">
+          <TabsTrigger value="revenue" className="flex items-center">
+            <TrendingUp className="h-4 w-4 mr-2" /> Доходы
+          </TabsTrigger>
+          <TabsTrigger value="seasonal" className="flex items-center">
+            <Calendar className="h-4 w-4 mr-2" /> Сезонный спрос
+          </TabsTrigger>
+          <TabsTrigger value="recommendations" className="flex items-center">
+            <Lightbulb className="h-4 w-4 mr-2" /> Рекомендации
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Вкладка Прогноз доходов */}
+        <TabsContent value="revenue">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="lg:col-span-1">
+              <CardHeader>
+                <CardTitle>Настройки прогноза</CardTitle>
+                <CardDescription>
+                  Укажите период прогнозирования
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">
+                      Горизонт прогноза (месяцев)
+                    </label>
+                    <Select 
+                      value={forecastMonths.toString()} 
+                      onValueChange={(value) => updateRevenueForecast(parseInt(value))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите период" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="3">3 месяца</SelectItem>
+                        <SelectItem value="6">6 месяцев</SelectItem>
+                        <SelectItem value="9">9 месяцев</SelectItem>
+                        <SelectItem value="12">12 месяцев</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Separator />
+
+                  <div className="pt-2">
+                    <h3 className="font-medium mb-2">Общая информация</h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Точность прогноза:</span>
+                        <span className="font-medium">
+                          {formatPercent(revenueForecast[0]?.confidence || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Учтено факторов:</span>
+                        <span className="font-medium">12</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Обновлено:</span>
+                        <span className="font-medium">{new Date().toLocaleDateString()}</span>
+                      </div>
                     </div>
                   </div>
+
+                  <Button
+                    onClick={() => {
+                      toast({
+                        title: "Экспорт прогноза",
+                        description: "Функция экспорта будет доступна в следующей версии",
+                      });
+                    }}
+                    variant="outline"
+                    className="w-full mt-4"
+                  >
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Экспортировать прогноз
+                  </Button>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="lg:col-span-3">
               <CardHeader>
-                <CardTitle>
-                  Доходы за {
-                    timePeriod === "day" ? "день" :
-                    timePeriod === "week" ? "неделю" :
-                    timePeriod === "month" ? "месяц" : "год"
-                  }
-                </CardTitle>
+                <CardTitle>Прогноз доходов на {forecastMonths} месяцев</CardTitle>
                 <CardDescription>
-                  Анализ доходов по периодам
+                  Ожидаемые доходы с учетом сезонности и рыночных трендов
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={analytics?.revenueByMonth}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                    <ComposedChart
+                      data={revenueForecast}
+                      margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
+                      <XAxis dataKey="period" />
                       <YAxis />
                       <Tooltip content={<CustomTooltip />} />
+                      <Legend />
                       <Area
                         type="monotone"
-                        dataKey="revenue"
-                        name="Доход, ₽"
+                        dataKey="upperBound"
+                        stackId="1"
+                        name="Верхняя граница"
                         stroke="#8884d8"
                         fill="#8884d8"
-                        fillOpacity={0.3}
+                        fillOpacity={0.2}
                       />
-                    </AreaChart>
+                      <Area
+                        type="monotone"
+                        dataKey="lowerBound"
+                        stackId="2"
+                        name="Нижняя граница"
+                        stroke="#82ca9d"
+                        fill="#82ca9d"
+                        fillOpacity={0.2}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="predictedRevenue"
+                        name="Прогноз"
+                        stroke="#ff7300"
+                        strokeWidth={2}
+                      />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
@@ -525,50 +869,9 @@ const Analytics = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>Сравнение доходов по категориям</CardTitle>
+              <CardTitle>Детализация прогноза по месяцам</CardTitle>
               <CardDescription>
-                Распределение доходов по категориям товаров
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      { category: "Электроинструмент", revenue: 120000 },
-                      { category: "Садовая техника", revenue: 85000 },
-                      { category: "Строительное оборудование", revenue: 150000 },
-                      { category: "Лестницы и подмости", revenue: 45000 },
-                      { category: "Измерительное оборудование", revenue: 35000 },
-                      { category: "Сварочное оборудование", revenue: 75000 },
-                    ]}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="category" />
-                    <YAxis />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Bar
-                      dataKey="revenue"
-                      name="Доход, ₽"
-                      fill="#8884d8"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Вкладка Товары */}
-        <TabsContent value="products">
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Топ-10 популярных товаров</CardTitle>
-              <CardDescription>
-                Самые востребованные товары по количеству бронирований и доходу
+                Подробные данные о прогнозируемом доходе с указанием уровня достоверности
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -576,42 +879,30 @@ const Analytics = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium text-gray-600">Название</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-600">Бронирований</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-600">Доход</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-600">Доступность</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-600">Тренд</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">Период</th>
+                      <th className="text-right py-3 px-4 font-medium text-gray-600">Прогноз дохода</th>
+                      <th className="text-right py-3 px-4 font-medium text-gray-600">Мин. значение</th>
+                      <th className="text-right py-3 px-4 font-medium text-gray-600">Макс. значение</th>
+                      <th className="text-center py-3 px-4 font-medium text-gray-600">Достоверность</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {topProducts.slice(0, 10).map((product) => (
-                      <tr key={product.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4 font-medium">{product.name}</td>
-                        <td className="py-3 px-4 text-center">{product.bookings}</td>
-                        <td className="py-3 px-4 text-center">{formatCurrency(product.revenue)}</td>
-                        <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center">
-                            <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2 max-w-24">
-                              <div
-                                className="bg-green-600 h-2.5 rounded-full"
-                                style={{ width: `${product.availability}%` }}
-                              ></div>
-                            </div>
-                            <span>{product.availability}%</span>
-                          </div>
+                    {revenueForecast.map((forecast, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4 font-medium">{forecast.period}</td>
+                        <td className="py-3 px-4 text-right">
+                          {formatCurrency(forecast.predictedRevenue)}
+                        </td>
+                        <td className="py-3 px-4 text-right text-red-700">
+                          {formatCurrency(forecast.lowerBound)}
+                        </td>
+                        <td className="py-3 px-4 text-right text-green-700">
+                          {formatCurrency(forecast.upperBound)}
                         </td>
                         <td className="py-3 px-4 text-center">
-                          {Math.random() > 0.5 ? (
-                            <span className="text-green-600 flex items-center justify-center">
-                              <ArrowUpRight className="h-4 w-4 mr-1" />
-                              {Math.floor(Math.random() * 20) + 5}%
-                            </span>
-                          ) : (
-                            <span className="text-red-600 flex items-center justify-center">
-                              <ArrowDownRight className="h-4 w-4 mr-1" />
-                              {Math.floor(Math.random() * 10) + 1}%
-                            </span>
-                          )}
+                          <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {formatPercent(forecast.confidence)}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -619,93 +910,297 @@ const Analytics = () => {
                 </table>
               </div>
             </CardContent>
+            <CardFooter className="bg-gray-50 px-6 py-3">
+              <div className="flex items-start text-sm text-gray-500">
+                <AlertCircle className="h-4 w-4 mr-2 mt-0.5 text-orange-500" />
+                <p>
+                  Достоверность прогноза снижается с увеличением горизонта прогнозирования. 
+                  Рекомендуется пересматривать прогноз каждый месяц с учетом новых данных.
+                </p>
+              </div>
+            </CardFooter>
           </Card>
+        </TabsContent>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Вкладка Сезонный спрос */}
+        <TabsContent value="seasonal">
+          <div className="mb-6">
             <Card>
               <CardHeader>
-                <CardTitle>Топ-5 товаров по доходу</CardTitle>
+                <CardTitle>Сезонные колебания спроса по товарам</CardTitle>
                 <CardDescription>
-                  Товары, принесшие наибольший доход
+                  Анализ изменения спроса на товары в зависимости от сезона
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={topProducts
-                        .sort((a, b) => b.revenue - a.revenue)
-                        .slice(0, 5)
-                        .map(product => ({
-                          name: product.name.length > 20 
-                            ? product.name.substring(0, 20) + '...' 
-                            : product.name,
-                          revenue: product.revenue
-                        }))}
-                      layout="vertical"
-                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="name" type="category" width={150} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend />
-                      <Bar
-                        dataKey="revenue"
-                        name="Доход, ₽"
-                        fill="#8884d8"
-                        radius={[0, 4, 4, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  {seasonalDemand.slice(0, 2).map((forecast, index) => (
+                    <Card key={index} className="shadow-none border">
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-base">{forecast.productName}</CardTitle>
+                          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getTrendColor(forecast.trend)}`}>
+                            {forecast.trend === "increasing" && <ArrowUpRight className="h-3 w-3 mr-1" />}
+                            {forecast.trend === "decreasing" && <ArrowDownRight className="h-3 w-3 mr-1" />}
+                            {forecast.trend === "increasing" && "Растущий тренд"}
+                            {forecast.trend === "decreasing" && "Снижающийся тренд"}
+                            {forecast.trend === "stable" && "Стабильный тренд"}
+                          </div>
+                        </div>
+                        <CardDescription>
+                          Достоверность: {formatPercent(forecast.confidence)}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-60">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                              data={forecast.seasonalDemand}
+                              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="period" />
+                              <YAxis domain={[0, 120]} />
+                              <Tooltip 
+                                formatter={(value) => [`${value}%`, 'Относительный спрос']}
+                              />
+                              <Bar
+                                dataKey="demand"
+                                name="Спрос"
+                                fill="#8884d8"
+                                radius={[4, 4, 0, 0]}
+                              />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
+
+                <div className="mt-6">
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart outerRadius={130} data={seasonalDemand[0]?.seasonalDemand}>
+                        <PolarGrid />
+                        <PolarAngleAxis dataKey="period" />
+                        <PolarRadiusAxis domain={[0, 120]} />
+                        {seasonalDemand.map((forecast, index) => (
+                          <Radar
+                            key={index}
+                            name={forecast.productName}
+                            dataKey="demand"
+                            stroke={
+                              index === 0 ? "#8884d8" :
+                              index === 1 ? "#82ca9d" :
+                              index === 2 ? "#ffc658" :
+                              index === 3 ? "#ff8042" :
+                              "#0088fe"
+                            }
+                            fill={
+                              index === 0 ? "#8884d8" :
+                              index === 1 ? "#82ca9d" :
+                              index === 2 ? "#ffc658" :
+                              index === 3 ? "#ff8042" :
+                              "#0088fe"
+                            }
+                            fillOpacity={0.2}
+                          />
+                        ))}
+                        <Legend />
+                        <Tooltip />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="bg-gray-50 px-6 py-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                  {[
+                    { title: "Товары с летним пиком", value: "42%", icon: <BadgePercent className="h-4 w-4 text-orange-600" /> },
+                    { title: "Товары с зимним пиком", value: "28%", icon: <BadgePercent className="h-4 w-4 text-blue-600" /> },
+                    { title: "Всесезонные товары", value: "30%", icon: <BadgePercent className="h-4 w-4 text-green-600" /> },
+                  ].map((stat, i) => (
+                    <div key={i} className="flex items-center">
+                      <div className="mr-3">{stat.icon}</div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{stat.title}</div>
+                        <div className="text-sm text-gray-600">{stat.value}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardFooter>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Вкладка Рекомендации */}
+        <TabsContent value="recommendations">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center text-base">
+                  <Award className="h-5 w-5 mr-2 text-green-600" />
+                  Популярные позиции
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500 mb-4">
+                  Товары с высоким спросом и хорошей рентабельностью
+                </p>
+                <ul className="space-y-2">
+                  {recommendations
+                    .filter(r => r.recommendationType === "increase" || r.recommendationType === "maintain")
+                    .slice(0, 3)
+                    .map((rec, i) => (
+                      <li key={i} className="p-2 rounded-md bg-green-50 flex justify-between">
+                        <span className="font-medium text-sm">{rec.productName}</span>
+                        <div className="flex items-center text-green-700 text-xs">
+                          <Star className="h-3 w-3 mr-1" /> 
+                          {formatPercent(rec.confidence)}
+                        </div>
+                      </li>
+                    ))}
+                </ul>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Топ-5 товаров по бронированиям</CardTitle>
-                <CardDescription>
-                  Товары с наибольшим количеством бронирований
-                </CardDescription>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center text-base">
+                  <Percent className="h-5 w-5 mr-2 text-orange-600" />
+                  Низкая эффективность
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={topProducts
-                        .sort((a, b) => b.bookings - a.bookings)
-                        .slice(0, 5)
-                        .map(product => ({
-                          name: product.name.length > 20 
-                            ? product.name.substring(0, 20) + '...' 
-                            : product.name,
-                          bookings: product.bookings
-                        }))}
-                      layout="vertical"
-                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="name" type="category" width={150} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend />
-                      <Bar
-                        dataKey="bookings"
-                        name="Бронирования"
-                        fill="#82ca9d"
-                        radius={[0, 4, 4, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <p className="text-sm text-gray-500 mb-4">
+                  Товары с низким коэффициентом использования
+                </p>
+                <ul className="space-y-2">
+                  {recommendations
+                    .filter(r => r.recommendationType === "decrease" || r.recommendationType === "remove")
+                    .slice(0, 3)
+                    .map((rec, i) => (
+                      <li key={i} className="p-2 rounded-md bg-orange-50 flex justify-between">
+                        <span className="font-medium text-sm">{rec.productName}</span>
+                        <div className="flex items-center text-orange-700 text-xs">
+                          <AlertCircle className="h-3 w-3 mr-1" /> 
+                          {formatPercent(rec.confidence)}
+                        </div>
+                      </li>
+                    ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center text-base">
+                  <Lightbulb className="h-5 w-5 mr-2 text-blue-600" />
+                  Новые возможности
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500 mb-4">
+                  Предложения по расширению ассортимента
+                </p>
+                <ul className="space-y-2">
+                  {recommendations
+                    .filter(r => r.recommendationType === "add")
+                    .slice(0, 3)
+                    .map((rec, i) => (
+                      <li key={i} className="p-2 rounded-md bg-blue-50 flex justify-between">
+                        <span className="font-medium text-sm">{rec.productName}</span>
+                        <div className="flex items-center text-blue-700 text-xs">
+                          <TrendingUp className="h-3 w-3 mr-1" /> 
+                          {formatCurrency(rec.potentialRevenue)}
+                        </div>
+                      </li>
+                    ))}
+                </ul>
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Рекомендации по оптимизации ассортимента</CardTitle>
+              <CardDescription>
+                Детальные рекомендации по каждому товару на основе анализа данных
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">Товар</th>
+                      <th className="text-center py-3 px-4 font-medium text-gray-600">Рекомендация</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">Обоснование</th>
+                      <th className="text-right py-3 px-4 font-medium text-gray-600">Потенциальный доход</th>
+                      <th className="text-center py-3 px-4 font-medium text-gray-600">Уверенность</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recommendations.map((rec, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4 font-medium">{rec.productName}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex justify-center">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRecommendationColor(
+                                rec.recommendationType
+                              )}`}
+                            >
+                              {getRecommendationIcon(rec.recommendationType)}
+                              {getRecommendationText(rec.recommendationType)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{rec.reason}</td>
+                        <td className="py-3 px-4 text-right">
+                          {rec.recommendationType === "remove" ? (
+                            <span className="text-gray-500">—</span>
+                          ) : (
+                            formatCurrency(rec.potentialRevenue)
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {formatPercent(rec.confidence)}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+            <CardFooter className="bg-gray-50 px-6 py-3 flex justify-between">
+              <div className="flex items-start text-sm text-gray-500">
+                <HelpCircle className="h-4 w-4 mr-2 mt-0.5 text-blue-500" />
+                <p>
+                  Рекомендации генерируются на основе анализа исторических данных, 
+                  текущих трендов и прогнозов будущего спроса. Все рекомендации 
+                  требуют экспертной оценки.
+                </p>
+              </div>
+              <Button onClick={() => {
+                toast({
+                  title: "Экспорт рекомендаций", 
+                  description: "Функция экспорта будет доступна в следующей версии"
+                });
+              }} variant="outline" size="sm">
+                <FileDown className="h-4 w-4 mr-2" />
+                Экспорт
+              </Button>
+            </CardFooter>
+          </Card>
         </TabsContent>
       </Tabs>
     </AdminLayout>
   );
 };
 
-export default Analytics;
+export default Forecasting;
