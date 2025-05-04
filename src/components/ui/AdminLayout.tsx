@@ -12,7 +12,8 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronRight
+  ChevronRight,
+  BarChart3
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -49,6 +50,11 @@ const AdminLayout = ({ children, title, subtitle }: AdminLayoutProps) => {
       name: "Бронирования",
       path: "/admin/bookings",
       icon: <Calendar className="h-5 w-5" />
+    },
+    {
+      name: "Аналитика",
+      path: "/admin/analytics",
+      icon: <BarChart3 className="h-5 w-5" />
     },
     {
       name: "Пользователи",
