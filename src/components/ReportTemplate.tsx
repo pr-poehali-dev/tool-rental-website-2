@@ -2,9 +2,11 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileDown, Printer, Share2 } from "lucide-react";
+import { FileDown, Printer, Share2, Download } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
+import ExportDialog from "./ExportDialog";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ReportTemplateProps {
   title: string;
@@ -13,8 +15,8 @@ interface ReportTemplateProps {
   generatedAt: string;
   periodStart: string;
   periodEnd: string;
+  data?: any[];
   onPrint?: () => void;
-  onDownload?: () => void;
   onShare?: () => void;
 }
 
@@ -25,10 +27,13 @@ const ReportTemplate: React.FC<ReportTemplateProps> = ({
   generatedAt,
   periodStart,
   periodEnd,
+  data = [],
   onPrint = () => window.print(),
-  onDownload,
   onShare,
 }) => {
+  const { toast } = useToast();
+  const reportId = `report-${Math.random().toString(36).substr(2, 9)}`;
+
   // Форматирование даты для отображения
   const formatDateStr = (dateStr: string) => {
     try {
@@ -47,8 +52,24 @@ const ReportTemplate: React.FC<ReportTemplateProps> = ({
     }
   };
 
+  // Обработчики успешного/неуспешного экспорта
+  const handleExportSuccess = () => {
+    toast({
+      title: "Экспорт успешно завершен",
+      description: "Файл сохранен на ваше устройство",
+    });
+  };
+
+  const handleExportError = (error: Error) => {
+    toast({
+      title: "Ошибка при экспорте",
+      description: error.message,
+      variant: "destructive",
+    });
+  };
+
   return (
-    <Card className="report-container mb-6">
+    <Card className="report-container mb-6" id={reportId}>
       <CardHeader className="flex flex-col space-y-2 pb-4 pt-6 print:pt-2">
         <div className="flex justify-between items-start">
           <div>
@@ -79,12 +100,19 @@ const ReportTemplate: React.FC<ReportTemplateProps> = ({
           Печать
         </Button>
         <div className="flex gap-2">
-          {onDownload && (
-            <Button variant="outline" onClick={onDownload}>
+          <ExportDialog
+            data={data}
+            reportTitle={title}
+            elementId={reportId}
+            onSuccess={handleExportSuccess}
+            onError={handleExportError}
+          >
+            <Button variant="outline">
               <FileDown className="h-4 w-4 mr-2" />
-              Скачать PDF
+              Экспорт
             </Button>
-          )}
+          </ExportDialog>
+          
           {onShare && (
             <Button variant="outline" onClick={onShare}>
               <Share2 className="h-4 w-4 mr-2" />
